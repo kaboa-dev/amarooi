@@ -23,6 +23,7 @@ from rich.panel import Panel
 
 from amarooi.core.exceptions import AmarooiException
 from amarooi.core.state import PlannerSession
+from amarooi.planner.architect import SDLCArchitect
 from amarooi.planner.manifest import ManifestEngine
 from amarooi.transpiler.engine import TranspilerEngine
 
@@ -70,18 +71,71 @@ def _cmd_plan(args: argparse.Namespace) -> int:
 def _cmd_transpile(args: argparse.Namespace) -> int:
     """Execute the ``transpile`` sub-command.
 
-    Reads an existing manifest and generates formatted Python source code.
+    Reads an existing manifest (JSON) **or** a hand-written ``.amarooi`` file
+    and generates formatted Python source code.
+
+    When ``--file`` points to a ``.amarooi`` natural-pseudocode file the
+    transpiler reads it directly from disk and sends it to the LLM.  When
+    ``--manifest`` is used the existing JSON manifest pipeline is followed.
 
     Args:
-        args: Parsed argument namespace containing ``manifest`` and ``out``.
+        args: Parsed argument namespace containing ``manifest``, ``file``,
+            and ``out``.
 
     Returns:
         Exit code: ``0`` on success, ``1`` on failure.
     """
+    _console.print(Panel("[bold cyan]Amarooi · Transpiling[/bold cyan]", expand=False))
+
+    # ── Branch: direct .amarooi file bypass ───────────────────────────
+    if getattr(args, "file", None):
+        amarooi_path = Path(args.file)
+        out_path = Path(args.out)
+        _console.print(f"[dim]Reading .amarooi ← {amarooi_path}[/dim]")
+        _console.print(f"[dim]Writing source   → {out_path}[/dim]")
+        try:
+            from amarooi.core.config import get_settings
+            from amarooi.utils.llm import GroqClientWrapper
+
+            pseudocode = amarooi_path.read_text(encoding="utf-8")
+            settings = get_settings()
+            client = GroqClientWrapper()
+            messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an expert Python engineer. "
+                        "Convert the following Amarooi natural pseudocode into clean, "
+                        "complete, type-annotated Python 3.10+ source code. "
+                        "Return ONLY the source code — no explanations, no Markdown fences."
+                    ),
+                },
+                {"role": "user", "content": pseudocode},
+            ]
+            raw = client.generate_completion(
+                messages,
+                model=settings.REASONING_MODEL,
+                temperature=0.1,
+                max_tokens=4096,
+            )
+            # Strip any accidental code fences from the response.
+            import re as _re
+
+            code = _re.sub(r"```[a-zA-Z0-9_\-]*\n?", "", raw).strip("` \n")
+            out_path.write_text(code, encoding="utf-8")
+        except AmarooiException as exc:
+            _err_console.print(f"[bold red]Error:[/bold red] {exc}")
+            return 1
+        except OSError as exc:
+            _err_console.print(f"[bold red]Error:[/bold red] {exc}")
+            return 1
+
+        _console.print(f"[bold green]✓[/bold green] Source written to [bold]{out_path}[/bold]")
+        return 0
+
+    # ── Branch: existing JSON manifest pipeline ────────────────────────
     manifest_path = Path(args.manifest)
     out_path = Path(args.out)
-
-    _console.print(Panel("[bold cyan]Amarooi · Transpiling[/bold cyan]", expand=False))
     _console.print(f"[dim]Reading manifest ← {manifest_path}[/dim]")
     _console.print(f"[dim]Writing source   → {out_path}[/dim]")
 
@@ -93,6 +147,31 @@ def _cmd_transpile(args: argparse.Namespace) -> int:
         return 1
 
     _console.print(f"[bold green]✓[/bold green] Source written to [bold]{out_path}[/bold]")
+    return 0
+
+
+def _cmd_architect(args: argparse.Namespace) -> int:
+    """Execute the ``architect`` sub-command.
+
+    Launches the full interactive SDLC Wizard powered by :class:`SDLCArchitect`.
+
+    Args:
+        args: Parsed argument namespace containing ``prompt``.
+
+    Returns:
+        Exit code: ``0`` on success, ``1`` on failure.
+    """
+    prompt: str = args.prompt or _prompt_interactively(
+        "Describe your project at a high level"
+    )
+
+    try:
+        architect = SDLCArchitect()
+        architect.run(prompt)
+    except AmarooiException as exc:
+        _err_console.print(f"[bold red]Error:[/bold red] {exc}")
+        return 1
+
     return 0
 
 
@@ -181,7 +260,7 @@ def _build_parser() -> argparse.ArgumentParser:
     # ── transpile ─────────────────────────────────────────────────────────
     transpile_parser = subparsers.add_parser(
         "transpile",
-        help="Convert a logic manifest to Python source code.",
+        help="Convert a logic manifest or .amarooi file to Python source code.",
     )
     transpile_parser.add_argument(
         "--manifest",
@@ -191,11 +270,32 @@ def _build_parser() -> argparse.ArgumentParser:
         help=f"Path to the manifest file (default: {_DEFAULT_MANIFEST_PATH}).",
     )
     transpile_parser.add_argument(
+        "--file",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Path to a hand-written .amarooi natural-pseudocode file.  "
+        "When provided, bypasses the JSON manifest pipeline entirely.",
+    )
+    transpile_parser.add_argument(
         "--out",
         type=str,
         required=True,
         metavar="PATH",
         help="Destination path for the generated Python source file.",
+    )
+
+    # ── architect ─────────────────────────────────────────────────────────
+    architect_parser = subparsers.add_parser(
+        "architect",
+        help="Launch the interactive SDLC Architect Wizard.",
+    )
+    architect_parser.add_argument(
+        "--prompt",
+        type=str,
+        default=None,
+        help="High-level project description.  "
+        "If omitted, you will be prompted interactively.",
     )
 
     # ── run ───────────────────────────────────────────────────────────────
@@ -267,6 +367,7 @@ def main() -> None:
         "plan": _cmd_plan,
         "transpile": _cmd_transpile,
         "run": _cmd_run,
+        "architect": _cmd_architect,
     }
 
     handler = dispatch[args.command]

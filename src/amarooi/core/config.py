@@ -42,7 +42,7 @@ class Settings(BaseSettings):
 
     GROQ_API_KEY: SecretStr
     DEFAULT_MODEL: str = "llama-3.3-70b-versatile"
-    REASONING_MODEL: str = "deepseek-r1-distill-llama-70b"
+    REASONING_MODEL: str = "llama-3.3-70b-versatile"
     MAX_RETRIES: int = 3
     REQUEST_TIMEOUT: float = 30.0
     LOG_LEVEL: str = "INFO"

@@ -1,0 +1,54 @@
+{
+  "meta": {
+    "project_name": "async_rate_limiter",
+    "version": "1.0.0",
+    "generated_at": "2026-08-11T21:34:05.750566+00:00",
+    "engine_version": "1.0.0"
+  },
+  "context": {
+    "problem_statement": "Create an async rate limiter class with a maximum of 5 requests per second",
+    "target_language": "python",
+    "runtime_constraints": [
+      "asyncio library",
+      "maximum 5 requests per second"
+    ]
+  },
+  "state_matrix": {
+    "variables": [
+      {
+        "name": "request_count",
+        "type": "integer",
+        "description": "Number of requests made in the last second",
+        "allowed_values": null
+      },
+      {
+        "name": "last_reset",
+        "type": "float",
+        "description": "Time of last request count reset in seconds since epoch",
+        "allowed_values": null
+      }
+    ],
+    "invariants": [
+      "request_count >= 0",
+      "last_reset >= 0"
+    ]
+  },
+  "logic_gates": [
+    {
+      "gate_id": "rate_limiter",
+      "condition": "request_count < 5 and time.time() - last_reset < 1",
+      "on_true": "allow_request",
+      "on_false": "block_request"
+    }
+  ],
+  "edge_cases": [
+    {
+      "scenario": "more than 5 requests in a second",
+      "fallback_action": "block_request and reset request_count"
+    },
+    {
+      "scenario": "first request",
+      "fallback_action": "allow_request and set last_reset to current time"
+    }
+  ]
+}

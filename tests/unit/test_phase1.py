@@ -95,7 +95,7 @@ class TestSettings:
         settings = get_settings()
         assert settings.GROQ_API_KEY.get_secret_value() == "gsk_test_key_123"
         assert settings.DEFAULT_MODEL == "llama-3.3-70b-versatile"
-        assert settings.REASONING_MODEL == "deepseek-r1-distill-llama-70b"
+        assert settings.REASONING_MODEL == "llama-3.3-70b-versatile"
         assert settings.MAX_RETRIES == 3
         assert settings.REQUEST_TIMEOUT == 30.0
         assert settings.LOG_LEVEL == "INFO"

@@ -101,10 +101,13 @@ class TestSettings:
         assert settings.LOG_LEVEL == "INFO"
 
     def test_missing_api_key_raises_configuration_error(
-        self, monkeypatch: pytest.MonkeyPatch
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path
     ) -> None:
-        monkeypatch.delenv("GROQ_API_KEY", raising=False)
         from amarooi.core.config import get_settings
+
+        get_settings.cache_clear()
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.delenv("GROQ_API_KEY", raising=False)
 
         with pytest.raises(ConfigurationError):
             get_settings()

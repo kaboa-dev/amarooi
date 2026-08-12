@@ -1,0 +1,50 @@
+{
+  "name": "amarooi-vscode",
+  "displayName": "Amarooi VS Code",
+  "description": "Premium SDLC Architect and transpiler wrapper for Amarooi CLI",
+  "version": "0.1.0",
+  "publisher": "kaboa-dev",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:amarooi.startWizard",
+    "onCommand:amarooi.transpileFile"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "amarooi.startWizard",
+        "title": "Amarooi: Open SDLC Architect Wizard"
+      },
+      {
+        "command": "amarooi.transpileFile",
+        "title": "Amarooi: Transpile .amarooi to Python"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "amarooi.transpileFile",
+          "when": "resourceExtname == .amarooi"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -w -p ./"
+  },
+  "dependencies": {
+    "@vscode/webview-ui-toolkit": "^1.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.9.2"
+  }
+}

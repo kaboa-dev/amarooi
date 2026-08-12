@@ -291,6 +291,7 @@ class TestCLISubCommands:
 
         args = MagicMock()
         args.manifest = str(manifest_file)
+        args.file = None
         args.out = str(out_path)
 
         transpile_client = MagicMock()

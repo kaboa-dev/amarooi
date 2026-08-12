@@ -1,0 +1,8 @@
+Component: open_positions_monitor
+
+Initialize:
+  Inputs/Outputs: 4
+  State: not sure
+
+When open_positions_monitor runs:
+  Step 1: d

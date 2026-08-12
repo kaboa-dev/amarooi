@@ -1,0 +1,11 @@
+Component: broker_api_connector
+
+Initialize:
+  Inputs/Outputs: (none)
+  State: (none)
+
+When broker_api_connector runs:
+  (no steps defined)
+
+Edge Cases:
+  If f: End

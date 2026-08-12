@@ -1,0 +1,11 @@
+Component: account_balance_checker
+
+Initialize:
+  Inputs/Outputs: rate limiter i think
+  State: 50
+
+When account_balance_checker runs:
+  Step 1: 5
+
+Edge Cases:
+  If 4: End

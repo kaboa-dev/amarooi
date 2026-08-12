@@ -1,0 +1,8 @@
+Component: network_timeout_handler
+
+Initialize:
+  Inputs/Outputs: (none)
+  State: (none)
+
+When network_timeout_handler runs:
+  (no steps defined)

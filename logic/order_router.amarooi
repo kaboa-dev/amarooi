@@ -1,0 +1,8 @@
+Component: order_router
+
+Initialize:
+  Inputs/Outputs: not sure
+  State: not sure
+
+When order_router runs:
+  Step 1: 6

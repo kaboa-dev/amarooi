@@ -5,7 +5,7 @@ stores the counter in ``~/.amarooi/usage.json``.
 
 Limits
 ------
-- **30 transpile runs / month**
+- **96 transpile runs / month**
 - **10 code extractions / month**
 - **5 active ``.amarooi`` specs per project**
 
@@ -42,7 +42,7 @@ _UPGRADE_MESSAGE = (
 
 #: Monthly limits keyed by feature name.
 MONTHLY_LIMITS: dict[str, int] = {
-    "transpile": 30,
+    "transpile": 96,
     "extraction": 10,
 }
 

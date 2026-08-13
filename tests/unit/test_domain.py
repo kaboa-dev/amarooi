@@ -34,13 +34,30 @@ class TestDomainAdapter:
         result = self.adapter.infer(prompt)
         assert result.domain == "web_api"
 
-    def test_web_api_compounds_present(self) -> None:
+    def test_web_api_software_components_present(self) -> None:
         result = self.adapter.infer(
             "Create a backend web server with REST endpoints, ORM schema, and session tokens."
         )
         assert result.domain == "web_api"
-        assert len(result.compounds) > 0
-        assert any("Auth" in c or "SQL" in c or "REST" in c for c in result.compounds)
+        assert len(result.software_components) > 0
+        assert any(
+            "Database" in c or "Auth" in c or "REST" in c or "SQL" in c
+            for c in result.software_components
+        )
+
+    def test_web_api_has_database_component(self) -> None:
+        result = self.adapter.infer(
+            "Build a REST API with JWT auth and Postgres SQL database."
+        )
+        assert result.domain == "web_api"
+        assert any("Database" in c for c in result.software_components)
+
+    def test_web_api_has_security_auth_component(self) -> None:
+        result = self.adapter.infer(
+            "Build a REST API with JWT auth and Postgres SQL database."
+        )
+        assert result.domain == "web_api"
+        assert any("Security" in c or "Auth" in c for c in result.software_components)
 
     # ------------------------------------------------------------------
     # Trading domain
@@ -55,12 +72,15 @@ class TestDomainAdapter:
         result = self.adapter.infer(prompt)
         assert result.domain == "trading"
 
-    def test_trading_compounds_include_circuit_breaker(self) -> None:
+    def test_trading_software_components_include_execution_loop(self) -> None:
         result = self.adapter.infer(
             "Trading engine with order execution, position management, and circuit breakers."
         )
         assert result.domain == "trading"
-        assert any("Circuit" in c or "Risk" in c or "Order" in c for c in result.compounds)
+        assert any(
+            "Execution Loop" in c or "Risk" in c or "Circuit" in c
+            for c in result.software_components
+        )
 
     # ------------------------------------------------------------------
     # Compiler domain
@@ -74,12 +94,12 @@ class TestDomainAdapter:
         result = self.adapter.infer(prompt)
         assert result.domain == "compiler"
 
-    def test_compiler_compounds_include_tokenizer(self) -> None:
+    def test_compiler_software_components_include_tokenizer(self) -> None:
         result = self.adapter.infer(
             "Transpiler: lexer, parser, AST visitor, and code generator."
         )
         assert result.domain == "compiler"
-        assert any("Tokenizer" in c or "AST" in c or "Code" in c for c in result.compounds)
+        assert any("Tokenizer" in c or "AST" in c or "Code" in c for c in result.software_components)
 
     # ------------------------------------------------------------------
     # Game engine domain
@@ -105,12 +125,26 @@ class TestDomainAdapter:
         result = self.adapter.infer(prompt)
         assert result.domain == "networking"
 
-    def test_networking_compounds_include_retry(self) -> None:
+    def test_networking_software_components_include_networking_component(self) -> None:
         result = self.adapter.infer(
             "Microservice with rate limiter, retry logic, and RPC protocol."
         )
         assert result.domain == "networking"
-        assert any("Retry" in c or "Rate" in c or "RPC" in c for c in result.compounds)
+        assert any(
+            "Networking" in c or "Retry" in c or "Rate" in c or "Execution Loop" in c
+            for c in result.software_components
+        )
+
+    # ------------------------------------------------------------------
+    # infer_software_components alias
+    # ------------------------------------------------------------------
+
+    def test_infer_software_components_returns_same_as_infer(self) -> None:
+        prompt = "Build a REST API with JWT auth and Postgres SQL database."
+        result_infer = self.adapter.infer(prompt)
+        result_sc = self.adapter.infer_software_components(prompt)
+        assert result_infer.domain == result_sc.domain
+        assert result_infer.software_components == result_sc.software_components
 
     # ------------------------------------------------------------------
     # Fallback behaviour
@@ -133,10 +167,20 @@ class TestDomainAdapter:
         domains = self.adapter.list_domains()
         assert set(domains) == {"web_api", "trading", "compiler", "game", "networking"}
 
+    def test_software_components_for_known_domain(self) -> None:
+        components = self.adapter.software_components_for("trading")
+        assert isinstance(components, list)
+        assert len(components) > 0
+
     def test_compounds_for_known_domain(self) -> None:
-        compounds = self.adapter.compounds_for("trading")
-        assert isinstance(compounds, list)
-        assert len(compounds) > 0
+        """Backward-compat: compounds_for() still works."""
+        components = self.adapter.compounds_for("trading")
+        assert isinstance(components, list)
+        assert len(components) > 0
+
+    def test_software_components_for_unknown_domain_raises(self) -> None:
+        with pytest.raises(KeyError):
+            self.adapter.software_components_for("unknown_domain_xyz")
 
     def test_compounds_for_unknown_domain_raises(self) -> None:
         with pytest.raises(KeyError):
@@ -152,11 +196,16 @@ class TestDomainAdapter:
         result = self.adapter.infer("REST API with auth")
         assert len(result.prompt_tokens) > 0
 
-    def test_compounds_is_copy(self) -> None:
-        """Mutating the returned compounds list must not affect internal state."""
+    def test_software_components_is_copy(self) -> None:
+        """Mutating the returned software_components list must not affect internal state."""
         result = self.adapter.infer("REST API with auth")
-        original_len = len(result.compounds)
-        result.compounds.append("EXTRA")
-        # Re-infer to check internal state is unchanged
+        original_len = len(result.software_components)
+        result.software_components.append("EXTRA")
         result2 = self.adapter.infer("REST API with auth")
-        assert len(result2.compounds) == original_len
+        assert len(result2.software_components) == original_len
+
+    def test_compounds_backward_compat_property(self) -> None:
+        """result.compounds should return the same list as result.software_components."""
+        result = self.adapter.infer("REST API with auth and SQL database.")
+        assert result.compounds == result.software_components
+

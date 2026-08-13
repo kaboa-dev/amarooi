@@ -232,7 +232,7 @@ def _cmd_synthesize(args: argparse.Namespace) -> int:
     return 0
 
 
-
+def _cmd_run(args: argparse.Namespace) -> int:
     """Execute the ``run`` sub-command.
 
     Runs the full pipeline: plan (generate manifest) then transpile (generate
@@ -272,6 +272,137 @@ def _cmd_synthesize(args: argparse.Namespace) -> int:
         return 1
 
     _console.print(f"[bold green]✓[/bold green] Source written to [bold]{out_path}[/bold]")
+    return 0
+
+
+def _cmd_extract(args: argparse.Namespace) -> int:
+    """Execute the ``extract`` sub-command.
+
+    Parses a legacy source file and writes its extracted ``.amarooi``
+    :class:`~amarooi.core.spec.SpecContract` to the output path as JSON.
+
+    Args:
+        args: Parsed argument namespace containing ``source``, ``lang``,
+            and ``out``.
+
+    Returns:
+        Exit code: ``0`` on success, ``1`` on failure.
+    """
+    import json as _json
+    from pathlib import Path as _Path
+
+    from amarooi.core.extractor.factory import ExtractorFactory
+
+    source_path = _Path(args.source)
+    out_path = _Path(args.out)
+    lang_key: str = args.lang or source_path.suffix
+
+    _console.print(
+        Panel("[bold cyan]Amarooi · Legacy Logic Extraction[/bold cyan]", expand=False)
+    )
+    _console.print(f"[dim]Source: {source_path}[/dim]")
+    _console.print(f"[dim]Lang key: {lang_key!r}[/dim]")
+
+    try:
+        source_code = source_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        _err_console.print(f"[bold red]Error reading source:[/bold red] {exc}")
+        return 1
+
+    try:
+        factory = ExtractorFactory()
+        extractor = factory.get_extractor(lang_key)
+    except KeyError as exc:
+        _err_console.print(f"[bold red]Error:[/bold red] {exc}")
+        return 1
+
+    try:
+        spec = extractor.extract(source_code)
+    except SyntaxError as exc:
+        _err_console.print(f"[bold red]Syntax error in source:[/bold red] {exc}")
+        return 1
+
+    try:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(
+            _json.dumps(spec.model_dump(), indent=2), encoding="utf-8"
+        )
+    except OSError as exc:
+        _err_console.print(f"[bold red]Error writing output:[/bold red] {exc}")
+        return 1
+
+    _console.print(
+        f"[bold green]✓[/bold green] Spec written to [bold]{out_path}[/bold]"
+    )
+    return 0
+
+
+def _cmd_verify(args: argparse.Namespace) -> int:
+    """Execute the ``verify`` sub-command.
+
+    Loads one or two :class:`~amarooi.core.spec.SpecContract` JSON files and
+    runs formal Z3 verification.
+
+    * With ``--spec`` only → Invariant / post-condition verification.
+    * With ``--spec`` and ``--target`` → Equivalence checking (*F ≡ G*).
+
+    Args:
+        args: Parsed argument namespace containing ``spec`` and optionally
+            ``target``.
+
+    Returns:
+        Exit code: ``0`` on success, ``1`` on failure.
+    """
+    import json as _json
+    from pathlib import Path as _Path
+
+    from amarooi.core.spec import SpecContract
+    from amarooi.core.verifier import FormalVerifier
+
+    spec_path = _Path(args.spec)
+
+    _console.print(
+        Panel("[bold cyan]Amarooi · Formal Verification[/bold cyan]", expand=False)
+    )
+
+    try:
+        spec_f = SpecContract.model_validate(
+            _json.loads(spec_path.read_text(encoding="utf-8"))
+        )
+    except (OSError, ValueError) as exc:
+        _err_console.print(f"[bold red]Error loading spec:[/bold red] {exc}")
+        return 1
+
+    verifier = FormalVerifier()
+
+    if getattr(args, "target", None):
+        target_path = _Path(args.target)
+        try:
+            spec_g = SpecContract.model_validate(
+                _json.loads(target_path.read_text(encoding="utf-8"))
+            )
+        except (OSError, ValueError) as exc:
+            _err_console.print(f"[bold red]Error loading target spec:[/bold red] {exc}")
+            return 1
+        _console.print("[dim]Mode: equivalence checking (F ≡ G)[/dim]")
+        result = verifier.check_equivalence(spec_f, spec_g)
+    else:
+        _console.print("[dim]Mode: invariant / post-condition verification[/dim]")
+        result = verifier.verify_invariants(spec_f)
+
+    if result.get("proven"):
+        _console.print(
+            f"[bold green]✓ PROVEN[/bold green]  result=[bold]{result['result']}[/bold]"
+        )
+    else:
+        _console.print(
+            f"[bold red]✗ NOT PROVEN[/bold red]  result=[bold]{result['result']}[/bold]"
+        )
+        if "counterexample" in result:
+            _console.print("[yellow]Counter-example:[/yellow]")
+            for k, v in result["counterexample"].items():
+                _console.print(f"  {k} = {v}")
+
     return 0
 
 
@@ -396,6 +527,55 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Destination path for the generated Python source file.",
     )
 
+    # ── extract ───────────────────────────────────────────────────────────
+    extract_parser = subparsers.add_parser(
+        "extract",
+        help="Extract a .amarooi SpecContract from legacy source code.",
+    )
+    extract_parser.add_argument(
+        "--source",
+        type=str,
+        required=True,
+        metavar="PATH",
+        help="Path to the legacy source file to analyse.",
+    )
+    extract_parser.add_argument(
+        "--lang",
+        type=str,
+        default=None,
+        metavar="LANG",
+        help="Language / file-extension key (e.g. 'python', '.py').  "
+        "Defaults to the file extension of --source.",
+    )
+    extract_parser.add_argument(
+        "--out",
+        type=str,
+        required=True,
+        metavar="PATH",
+        help="Destination path for the extracted SpecContract JSON.",
+    )
+
+    # ── verify ────────────────────────────────────────────────────────────
+    verify_parser = subparsers.add_parser(
+        "verify",
+        help="Run formal Z3 verification on a SpecContract.",
+    )
+    verify_parser.add_argument(
+        "--spec",
+        type=str,
+        required=True,
+        metavar="PATH",
+        help="Path to the SpecContract JSON file to verify.",
+    )
+    verify_parser.add_argument(
+        "--target",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Path to a second SpecContract JSON for equivalence checking (F ≡ G).  "
+        "When omitted, invariant / post-condition verification is performed.",
+    )
+
     return parser
 
 
@@ -447,6 +627,8 @@ def main() -> None:
         "run": _cmd_run,
         "architect": _cmd_architect,
         "synthesize": _cmd_synthesize,
+        "extract": _cmd_extract,
+        "verify": _cmd_verify,
     }
 
     handler = dispatch[args.command]

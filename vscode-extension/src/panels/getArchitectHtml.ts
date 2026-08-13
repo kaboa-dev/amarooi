@@ -4,6 +4,9 @@ export function getArchitectHtml(webview: vscode.Webview, extensionUri: vscode.U
   const toolkitUri = webview.asWebviewUri(
     vscode.Uri.joinPath(extensionUri, "node_modules", "@vscode", "webview-ui-toolkit", "dist", "toolkit.js")
   );
+  const stylesUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(extensionUri, "src", "webview", "styles.css")
+  );
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -11,61 +14,7 @@ export function getArchitectHtml(webview: vscode.Webview, extensionUri: vscode.U
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Amarooi SDLC Architect Wizard</title>
-    <style>
-      :root {
-        color-scheme: light dark;
-      }
-
-      body {
-        margin: 0;
-        background: var(--vscode-editor-background);
-        color: var(--vscode-editor-foreground);
-        font-family: var(--vscode-font-family);
-      }
-
-      .layout {
-        display: grid;
-        grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr);
-        gap: 16px;
-        height: 100vh;
-        box-sizing: border-box;
-        padding: 16px;
-      }
-
-      .panel {
-        display: grid;
-        grid-template-rows: auto 1fr auto;
-        gap: 12px;
-        background: var(--vscode-sideBar-background);
-        border: 1px solid var(--vscode-panel-border);
-        border-radius: 8px;
-        padding: 12px;
-        min-height: 0;
-      }
-
-      .chat-log {
-        overflow-y: auto;
-        border: 1px solid var(--vscode-panel-border);
-        border-radius: 6px;
-        background: var(--vscode-editor-background);
-        padding: 10px;
-      }
-
-      .row {
-        display: grid;
-        grid-template-columns: 1fr auto;
-        gap: 8px;
-      }
-
-      .actions {
-        display: flex;
-        gap: 8px;
-      }
-
-      vscode-text-area {
-        height: 100%;
-      }
-    </style>
+    <link rel="stylesheet" href="${stylesUri}" />
   </head>
   <body>
     <div class="layout">

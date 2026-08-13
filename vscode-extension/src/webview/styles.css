@@ -1,0 +1,104 @@
+:root {
+  color-scheme: dark;
+
+  /* Primary Reds (Crimson Spectrum) */
+  --amarooi-red-primary: #DC2626;
+  --amarooi-red-crimson: #B91C1C;
+  --amarooi-red-ruby: #991B1B;
+  --amarooi-red-wine: #7F1D1D;
+  --amarooi-red-glow: rgba(220, 38, 38, 0.25);
+
+  /* Whites & Creams */
+  --amarooi-cream-white: #FAF9F6;
+  --amarooi-pure-white: #FFFFFF;
+  --amarooi-subtle-cream: #E2E8F0;
+
+  /* Dark Contrast Backgrounds */
+  --amarooi-bg-dark: #09090B;
+  --amarooi-card-dark: #121215;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top, rgba(185, 28, 28, 0.16), transparent 32%),
+    linear-gradient(180deg, rgba(127, 29, 29, 0.14), transparent 18%),
+    var(--amarooi-bg-dark);
+  color: var(--amarooi-cream-white);
+  font-family: var(--vscode-font-family);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr);
+  gap: 16px;
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 16px;
+}
+
+.panel {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 12px;
+  min-height: 0;
+  padding: 16px;
+  border: 1px solid var(--amarooi-red-crimson);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(153, 27, 27, 0.18), rgba(18, 18, 21, 0.92)),
+    var(--amarooi-card-dark);
+  box-shadow:
+    0 0 0 1px rgba(185, 28, 28, 0.24),
+    0 18px 45px rgba(0, 0, 0, 0.35),
+    0 0 24px var(--amarooi-red-glow);
+}
+
+.panel h2 {
+  margin: 0;
+  color: var(--amarooi-pure-white);
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.chat-log {
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid rgba(220, 38, 38, 0.45);
+  border-radius: 10px;
+  background: rgba(9, 9, 11, 0.82);
+}
+
+.chat-log p {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--amarooi-red-primary);
+  border-radius: 8px;
+  background: rgba(127, 29, 29, 0.12);
+  color: var(--amarooi-cream-white);
+}
+
+.chat-log p:last-child {
+  margin-bottom: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+vscode-text-field,
+vscode-text-area {
+  width: 100%;
+}
+
+vscode-text-area {
+  height: 100%;
+}

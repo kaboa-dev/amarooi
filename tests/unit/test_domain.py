@@ -34,13 +34,17 @@ class TestDomainAdapter:
         result = self.adapter.infer(prompt)
         assert result.domain == "web_api"
 
-    def test_web_api_compounds_present(self) -> None:
+    def test_web_api_software_components_present(self) -> None:
         result = self.adapter.infer(
             "Create a backend web server with REST endpoints, ORM schema, and session tokens."
         )
         assert result.domain == "web_api"
-        assert len(result.compounds) > 0
-        assert any("Auth" in c or "SQL" in c or "REST" in c for c in result.compounds)
+        assert result.software_components == [
+            "Security & Auth Component (JWT, OAuth, Encryption)",
+            "Database Component (SQL, ORM, Migrations)",
+            "Networking Component (REST, WebSockets, Rate Limiters)",
+            "Presentation Component (Client UI State, Forms, Validation)",
+        ]
 
     # ------------------------------------------------------------------
     # Trading domain
@@ -55,12 +59,12 @@ class TestDomainAdapter:
         result = self.adapter.infer(prompt)
         assert result.domain == "trading"
 
-    def test_trading_compounds_include_circuit_breaker(self) -> None:
+    def test_trading_software_components_include_execution_loop(self) -> None:
         result = self.adapter.infer(
             "Trading engine with order execution, position management, and circuit breakers."
         )
         assert result.domain == "trading"
-        assert any("Circuit" in c or "Risk" in c or "Order" in c for c in result.compounds)
+        assert "Execution Loop Component (State Machines, Invariant Gates)" in result.software_components
 
     # ------------------------------------------------------------------
     # Compiler domain
@@ -74,12 +78,12 @@ class TestDomainAdapter:
         result = self.adapter.infer(prompt)
         assert result.domain == "compiler"
 
-    def test_compiler_compounds_include_tokenizer(self) -> None:
+    def test_compiler_software_components_include_parser_pipeline(self) -> None:
         result = self.adapter.infer(
             "Transpiler: lexer, parser, AST visitor, and code generator."
         )
         assert result.domain == "compiler"
-        assert any("Tokenizer" in c or "AST" in c or "Code" in c for c in result.compounds)
+        assert "Parsing Component (Tokenizers, AST Builders, Grammar Rules)" in result.software_components
 
     # ------------------------------------------------------------------
     # Game engine domain
@@ -105,12 +109,12 @@ class TestDomainAdapter:
         result = self.adapter.infer(prompt)
         assert result.domain == "networking"
 
-    def test_networking_compounds_include_retry(self) -> None:
+    def test_networking_software_components_include_rate_limiter(self) -> None:
         result = self.adapter.infer(
             "Microservice with rate limiter, retry logic, and RPC protocol."
         )
         assert result.domain == "networking"
-        assert any("Retry" in c or "Rate" in c or "RPC" in c for c in result.compounds)
+        assert "Networking Component (REST, WebSockets, Rate Limiters)" in result.software_components
 
     # ------------------------------------------------------------------
     # Fallback behaviour
@@ -133,14 +137,14 @@ class TestDomainAdapter:
         domains = self.adapter.list_domains()
         assert set(domains) == {"web_api", "trading", "compiler", "game", "networking"}
 
-    def test_compounds_for_known_domain(self) -> None:
-        compounds = self.adapter.compounds_for("trading")
-        assert isinstance(compounds, list)
-        assert len(compounds) > 0
+    def test_software_components_for_known_domain(self) -> None:
+        software_components = self.adapter.software_components_for("trading")
+        assert isinstance(software_components, list)
+        assert len(software_components) > 0
 
-    def test_compounds_for_unknown_domain_raises(self) -> None:
+    def test_software_components_for_unknown_domain_raises(self) -> None:
         with pytest.raises(KeyError):
-            self.adapter.compounds_for("unknown_domain_xyz")
+            self.adapter.software_components_for("unknown_domain_xyz")
 
     def test_confidence_is_float_in_range(self) -> None:
         result = self.adapter.infer(
@@ -152,11 +156,11 @@ class TestDomainAdapter:
         result = self.adapter.infer("REST API with auth")
         assert len(result.prompt_tokens) > 0
 
-    def test_compounds_is_copy(self) -> None:
-        """Mutating the returned compounds list must not affect internal state."""
+    def test_software_components_is_copy(self) -> None:
+        """Mutating the returned software component list must not affect internal state."""
         result = self.adapter.infer("REST API with auth")
-        original_len = len(result.compounds)
-        result.compounds.append("EXTRA")
+        original_len = len(result.software_components)
+        result.software_components.append("EXTRA")
         # Re-infer to check internal state is unchanged
         result2 = self.adapter.infer("REST API with auth")
-        assert len(result2.compounds) == original_len
+        assert len(result2.software_components) == original_len

@@ -37,7 +37,7 @@ class KnowledgeEntry:
         title: Short human-readable title for the entry.
         summary: One-to-three sentence description of the concept or pattern.
         source: Canonical source label (e.g. ``'RFC 7519'``, ``'OWASP'``).
-        tags: Keywords that connect this entry to domain/compound searches.
+        tags: Keywords that connect this entry to domain/software component searches.
         verified: ``True`` when the entry originates from an official or
             peer-reviewed source rather than community content.
     """

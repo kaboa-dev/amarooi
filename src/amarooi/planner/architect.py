@@ -80,7 +80,7 @@ class SDLCArchitect:
                 instance is created when *None*.
             workspace: Optional :class:`~amarooi.planner.generator.WorkspaceManager`
                 that determines where ``.amarooi`` files are saved.  Defaults to
-                ``logic/`` relative to the current working directory.
+                ``specs/`` relative to the current working directory.
         """
         self._settings = get_settings()
         self._client: GroqClientWrapper = client or GroqClientWrapper()

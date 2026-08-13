@@ -19,6 +19,7 @@ from pathlib import Path
 
 from amarooi.core.config import get_settings
 from amarooi.core.exceptions import TranspilationError
+from amarooi.core.workspace import ProjectWorkspace, normalize_target
 from amarooi.planner.manifest import ManifestEngine
 from amarooi.planner.schemas import LogicManifest
 from amarooi.utils.llm import GroqClientWrapper
@@ -28,6 +29,14 @@ _CODE_FENCE_RE = re.compile(
     r"```(?:[a-zA-Z0-9_\-]*)?\n(.*?)```",
     re.DOTALL,
 )
+
+_TARGET_GENERATION_HINTS: dict[str, str] = {
+    "python": "Generate clean, complete, type-annotated, executable Python 3.10+ code.",
+    "rust": "Generate clean, complete, idiomatic Rust code with explicit types and ownership-safe structure.",
+    "c++": "Generate clean, complete, modern C++ code with clear types and headers included when needed.",
+    "java": "Generate clean, complete, idiomatic Java code with explicit classes and types.",
+    "typescript": "Generate clean, complete, strongly typed TypeScript code.",
+}
 
 
 def _strip_code_fences(text: str) -> str:
@@ -102,33 +111,25 @@ class TranspilerEngine:
                 Python (when *target_language* is ``"python"``).
             LLMExecutionError: If the underlying LLM call fails.
         """
-        prompt = self._build_prompt(manifest, target_language)
-        messages = [{"role": "user", "content": prompt}]
-
-        raw_output = self._client.generate_completion(
-            messages,
-            model=self._settings.REASONING_MODEL,
-            temperature=0.1,
-            max_tokens=4096,
-        )
-
-        code = _strip_code_fences(raw_output)
-
-        if target_language.lower() == "python":
-            self._validate_python_ast(code)
-
-        return code
+        canonical_target = normalize_target(target_language)
+        prompt = self._build_prompt(manifest, canonical_target)
+        return self._generate_code(prompt, canonical_target)
 
     def transpile_file(
         self,
         manifest_path: str | Path,
-        output_path: str | Path,
+        output_path: str | Path | None = None,
+        target_language: str | None = None,
     ) -> str:
         """Load a manifest from disk, transpile it, and write the result.
 
         Args:
             manifest_path: Path to an ``.amarooi.json`` manifest file.
-            output_path: Destination path for the generated source file.
+            output_path: Destination path for the generated source file. When
+                *None*, a target-isolated path under ``src_generated/<target>/``
+                is derived automatically.
+            target_language: Optional explicit target override. When omitted,
+                the manifest's declared target is used.
 
         Returns:
             The generated source code string (same content written to
@@ -141,9 +142,32 @@ class TranspilerEngine:
             LLMExecutionError: If the underlying LLM call fails.
         """
         manifest = ManifestEngine.load_manifest(manifest_path)
-        code = self.transpile(manifest, target_language=manifest.context.target_language)
+        canonical_target = normalize_target(target_language or manifest.context.target_language)
+        code = self.transpile(manifest, target_language=canonical_target)
 
-        output = Path(output_path)
+        output = Path(output_path) if output_path is not None else ProjectWorkspace.from_path(
+            manifest_path
+        ).resolve_generated_path(manifest_path, canonical_target)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(code, encoding="utf-8")
+        return code
+
+    def transpile_spec_file(
+        self,
+        spec_path: str | Path,
+        output_path: str | Path | None = None,
+        target_language: str = "python",
+    ) -> str:
+        """Transpile a hand-authored ``.amarooi`` spec into source code."""
+        canonical_target = normalize_target(target_language)
+        spec_text = Path(spec_path).read_text(encoding="utf-8")
+        prompt = self._build_spec_prompt(spec_text, canonical_target)
+        code = self._generate_code(prompt, canonical_target)
+
+        output = Path(output_path) if output_path is not None else ProjectWorkspace.from_path(
+            spec_path
+        ).resolve_generated_path(spec_path, canonical_target)
+        output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(code, encoding="utf-8")
         return code
 
@@ -182,8 +206,7 @@ class TranspilerEngine:
 
         return (
             f"You are an expert {target_language} engineer.\n"
-            f"Generate clean, complete, type-annotated, executable "
-            f"{target_language} 3.10+ code that implements the following logic.\n"
+            f"{_TARGET_GENERATION_HINTS[target_language]}\n"
             f"Return ONLY the source code, with NO explanations and NO Markdown fences.\n\n"
             f"Project: {manifest.meta.project_name}\n"
             f"Problem: {manifest.context.problem_statement}\n\n"
@@ -192,6 +215,31 @@ class TranspilerEngine:
             f"Logic Gates:\n{gates}\n\n"
             f"Edge Cases:\n{edge_cases}\n"
         )
+
+    def _build_spec_prompt(self, spec_text: str, target_language: str) -> str:
+        """Construct a transpilation prompt from natural Amarooi pseudocode."""
+        return (
+            f"You are an expert {target_language} engineer.\n"
+            f"{_TARGET_GENERATION_HINTS[target_language]}\n"
+            "Convert the following Amarooi natural pseudocode into production-ready "
+            f"{target_language} source code.\n"
+            "Return ONLY the source code, with NO explanations and NO Markdown fences.\n\n"
+            f"{spec_text.strip()}\n"
+        )
+
+    def _generate_code(self, prompt: str, target_language: str) -> str:
+        """Generate and validate source code for *target_language*."""
+        messages = [{"role": "user", "content": prompt}]
+        raw_output = self._client.generate_completion(
+            messages,
+            model=self._settings.REASONING_MODEL,
+            temperature=0.1,
+            max_tokens=4096,
+        )
+        code = _strip_code_fences(raw_output)
+        if target_language == "python":
+            self._validate_python_ast(code)
+        return code
 
     @staticmethod
     def _validate_python_ast(code: str) -> None:

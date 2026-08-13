@@ -194,21 +194,24 @@ class TestCLIArgParsing:
         args = parser.parse_args(["plan", "--prompt", "p", "--out", "custom.json"])
         assert args.out == "custom.json"
 
-    def test_transpile_requires_out(self) -> None:
-        """``amarooi transpile`` without --out exits with error."""
+    def test_transpile_defaults_output_and_manifest(self) -> None:
+        """``amarooi transpile`` can rely on default manifest and output resolution."""
         parser = self._get_parser()
-        with pytest.raises(SystemExit):
-            parser.parse_args(["transpile"])
+        args = parser.parse_args(["transpile"])
+        assert args.command == "transpile"
+        assert args.manifest == ".amarooi.json"
+        assert args.out is None
 
-    def test_transpile_parses_correctly(self) -> None:
-        """``amarooi transpile`` stores manifest and out paths."""
+    def test_transpile_parses_spec_and_target_alias(self) -> None:
+        """``amarooi transpile`` accepts ``--spec`` and short target aliases."""
         parser = self._get_parser()
         args = parser.parse_args(
-            ["transpile", "--manifest", "in.json", "--out", "out.py"]
+            ["transpile", "--spec", "specs/order_router.amarooi", "-t", "rs"]
         )
         assert args.command == "transpile"
-        assert args.manifest == "in.json"
-        assert args.out == "out.py"
+        assert args.spec == "specs/order_router.amarooi"
+        assert args.target == "rs"
+        assert args.out is None
 
     def test_run_requires_out(self) -> None:
         """``amarooi run`` without --out exits with error."""
@@ -291,11 +294,9 @@ class TestCLISubCommands:
 
         args = MagicMock()
         args.manifest = str(manifest_file)
-        args.file = None
+        args.spec = None
+        args.target = None
         args.out = str(out_path)
-
-        transpile_client = MagicMock()
-        transpile_client.generate_completion.return_value = valid_code
 
         with patch("amarooi.cli.TranspilerEngine") as MockEngine:
             instance = MockEngine.return_value
@@ -304,6 +305,29 @@ class TestCLISubCommands:
 
         assert exit_code == 0
         instance.transpile_file.assert_called_once()
+
+    def test_cmd_transpile_spec_uses_target_isolated_default_output(self, tmp_path: Path) -> None:
+        """_cmd_transpile() resolves ``src_generated/<target>/`` for ``--spec`` inputs."""
+        from amarooi.cli import _cmd_transpile
+
+        spec_file = tmp_path / "specs" / "order_router.amarooi"
+        spec_file.parent.mkdir()
+        spec_file.write_text("Component: order_router\n", encoding="utf-8")
+
+        args = MagicMock()
+        args.manifest = ".amarooi.json"
+        args.spec = str(spec_file)
+        args.target = "rs"
+        args.out = None
+
+        with patch("amarooi.cli.TranspilerEngine") as MockEngine:
+            instance = MockEngine.return_value
+            instance.transpile_spec_file.return_value = "fn order_router() {}\n"
+            exit_code = _cmd_transpile(args)
+
+        assert exit_code == 0
+        called_out = instance.transpile_spec_file.call_args.args[1]
+        assert Path(called_out) == tmp_path / "src_generated" / "rust" / "order_router.rs"
 
     def test_cmd_run_full_pipeline(self, tmp_path: Path) -> None:
         """_cmd_run() executes plan + transpile and returns exit code 0."""
@@ -335,3 +359,24 @@ class TestCLISubCommands:
             "build something"
         )
         engine_instance.transpile_file.assert_called_once()
+
+    def test_cmd_extract_defaults_to_extracted_specs_directory(self, tmp_path: Path) -> None:
+        """_cmd_extract() resolves extracted output into ``extracted_specs/`` by default."""
+        from amarooi.cli import _cmd_extract
+
+        source_file = tmp_path / "legacy.py"
+        source_file.write_text("x = 1\n", encoding="utf-8")
+
+        args = MagicMock()
+        args.source = str(source_file)
+        args.lang = "python"
+        args.out = None
+
+        spec_mock = MagicMock()
+        spec_mock.model_dump.return_value = {"component_name": "legacy"}
+
+        with patch("amarooi.core.extractor.factory.PythonExtractor.extract", return_value=spec_mock):
+            exit_code = _cmd_extract(args)
+
+        assert exit_code == 0
+        assert (tmp_path / "extracted_specs" / "legacy.amarooi.json").exists()

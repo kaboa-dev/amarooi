@@ -1,9 +1,9 @@
 """Command-line interface entry point for the Amarooi framework.
 
-Exposes three sub-commands:
+Exposes core sub-commands:
 
 * ``amarooi plan``    – generate a ``.amarooi.json`` logic manifest.
-* ``amarooi transpile`` – convert a manifest to Python source code.
+* ``amarooi transpile`` – convert a manifest or ``.amarooi`` spec to source code.
 * ``amarooi run``    – plan *and* transpile in a single pipeline.
 
 Example:
@@ -25,6 +25,7 @@ from amarooi.core.exceptions import AmarooiException
 from amarooi.core.state import PlannerSession
 from amarooi.core.synthesis import SynthesisEngine, VaguePromptError
 from amarooi.core.usage import UsageTracker
+from amarooi.core.workspace import ProjectWorkspace, TARGET_ALIASES, normalize_target, target_badge
 from amarooi.planner.architect import SDLCArchitect
 from amarooi.planner.manifest import ManifestEngine
 from amarooi.transpiler.engine import TranspilerEngine
@@ -74,81 +75,72 @@ def _cmd_transpile(args: argparse.Namespace) -> int:
     """Execute the ``transpile`` sub-command.
 
     Reads an existing manifest (JSON) **or** a hand-written ``.amarooi`` file
-    and generates formatted Python source code.
+    and generates formatted target source code.
 
-    When ``--file`` points to a ``.amarooi`` natural-pseudocode file the
+    When ``--spec`` / ``--file`` points to a ``.amarooi`` natural-pseudocode file the
     transpiler reads it directly from disk and sends it to the LLM.  When
     ``--manifest`` is used the existing JSON manifest pipeline is followed.
 
     Args:
-        args: Parsed argument namespace containing ``manifest``, ``file``,
-            and ``out``.
+        args: Parsed argument namespace containing ``manifest``, ``spec``,
+            ``target``, and ``out``.
 
     Returns:
         Exit code: ``0`` on success, ``1`` on failure.
     """
     _console.print(Panel("[bold cyan]Amarooi · Transpiling[/bold cyan]", expand=False))
+    engine = TranspilerEngine()
 
-    # ── Branch: direct .amarooi file bypass ───────────────────────────
-    if getattr(args, "file", None):
-        amarooi_path = Path(args.file)
-        out_path = Path(args.out)
-        _console.print(f"[dim]Reading .amarooi ← {amarooi_path}[/dim]")
+    # ── Branch: direct .amarooi spec transpilation ─────────────────────
+    if getattr(args, "spec", None):
+        spec_path = Path(args.spec)
+        try:
+            canonical_target = normalize_target(args.target)
+        except ValueError as exc:
+            _err_console.print(f"[bold red]Error:[/bold red] {exc}")
+            return 1
+        out_path = Path(args.out) if args.out else ProjectWorkspace.from_path(
+            spec_path
+        ).resolve_generated_path(spec_path, canonical_target)
+        _console.print(f"[dim]Reading spec     ← {spec_path}[/dim]")
+        _console.print(f"[dim]Target          → {target_badge(canonical_target)}[/dim]")
         _console.print(f"[dim]Writing source   → {out_path}[/dim]")
         try:
-            from amarooi.core.config import get_settings
-            from amarooi.utils.llm import GroqClientWrapper
-
-            pseudocode = amarooi_path.read_text(encoding="utf-8")
-            settings = get_settings()
-            client = GroqClientWrapper()
-            messages = [
-                {
-                    "role": "system",
-                    "content": (
-                        "You are an expert Python engineer. "
-                        "Convert the following Amarooi natural pseudocode into clean, "
-                        "complete, type-annotated Python 3.10+ source code. "
-                        "Return ONLY the source code — no explanations, no Markdown fences."
-                    ),
-                },
-                {"role": "user", "content": pseudocode},
-            ]
-            raw = client.generate_completion(
-                messages,
-                model=settings.REASONING_MODEL,
-                temperature=0.1,
-                max_tokens=4096,
-            )
-            # Strip any accidental code fences from the response.
-            import re as _re
-
-            code = _re.sub(r"```[a-zA-Z0-9_\-]*\n?", "", raw).strip("` \n")
-            out_path.write_text(code, encoding="utf-8")
-        except AmarooiException as exc:
-            _err_console.print(f"[bold red]Error:[/bold red] {exc}")
-            return 1
-        except OSError as exc:
+            engine.transpile_spec_file(spec_path, out_path, target_language=canonical_target)
+        except (AmarooiException, OSError) as exc:
             _err_console.print(f"[bold red]Error:[/bold red] {exc}")
             return 1
 
-        _console.print(f"[bold green]✓[/bold green] Source written to [bold]{out_path}[/bold]")
+        _console.print(
+            f"[bold green]✓[/bold green] {target_badge(canonical_target)} "
+            f"source written to [bold]{out_path}[/bold]"
+        )
         return 0
 
     # ── Branch: existing JSON manifest pipeline ────────────────────────
     manifest_path = Path(args.manifest)
-    out_path = Path(args.out)
-    _console.print(f"[dim]Reading manifest ← {manifest_path}[/dim]")
-    _console.print(f"[dim]Writing source   → {out_path}[/dim]")
-
     try:
-        engine = TranspilerEngine()
-        engine.transpile_file(manifest_path, out_path)
-    except AmarooiException as exc:
+        manifest = ManifestEngine.load_manifest(manifest_path)
+        canonical_target = normalize_target(args.target or manifest.context.target_language)
+        out_path = Path(args.out) if args.out else ProjectWorkspace.from_path(
+            manifest_path
+        ).resolve_generated_path(manifest_path, canonical_target)
+        _console.print(f"[dim]Reading manifest ← {manifest_path}[/dim]")
+        _console.print(f"[dim]Target          → {target_badge(canonical_target)}[/dim]")
+        _console.print(f"[dim]Writing source   → {out_path}[/dim]")
+        engine.transpile_file(
+            manifest_path,
+            out_path,
+            target_language=canonical_target,
+        )
+    except (AmarooiException, ValueError) as exc:
         _err_console.print(f"[bold red]Error:[/bold red] {exc}")
         return 1
 
-    _console.print(f"[bold green]✓[/bold green] Source written to [bold]{out_path}[/bold]")
+    _console.print(
+        f"[bold green]✓[/bold green] {target_badge(canonical_target)} "
+        f"source written to [bold]{out_path}[/bold]"
+    )
     return 0
 
 
@@ -183,7 +175,7 @@ def _cmd_synthesize(args: argparse.Namespace) -> int:
     Stage 1 of the Two-Stage Spec Pipeline:
 
     * **Detailed prompt** → synthesises a ``.amarooi`` logic spec directly
-      into ``logic/<slug>.amarooi`` without an interactive interview.
+      into ``specs/<slug>.amarooi`` without an interactive interview.
     * **Vague prompt** → prints guidance and exits with code 2, directing the
       user to run ``amarooi architect`` instead.
 
@@ -197,7 +189,8 @@ def _cmd_synthesize(args: argparse.Namespace) -> int:
     prompt: str = args.prompt or _prompt_interactively(
         "Describe the component you want to synthesise (be detailed)"
     )
-    out_dir = Path(args.out_dir)
+    workspace = ProjectWorkspace(Path.cwd())
+    out_dir = Path(args.out_dir) if args.out_dir else workspace.specs_dir
 
     _console.print(
         Panel("[bold cyan]Amarooi · Spec Synthesis[/bold cyan]", expand=False)
@@ -226,7 +219,7 @@ def _cmd_synthesize(args: argparse.Namespace) -> int:
     tracker.increment("transpile")
     _console.print(
         f"[bold green]✓[/bold green] Spec written to [bold]{spec_path}[/bold]\n"
-        "[dim]Review the spec, then run [bold]amarooi transpile --file "
+        "[dim]Review the spec, then run [bold]amarooi transpile --spec "
         f"{spec_path}[/bold] to generate Python.[/dim]"
     )
     return 0
@@ -294,7 +287,8 @@ def _cmd_extract(args: argparse.Namespace) -> int:
     from amarooi.core.extractor.factory import ExtractorFactory
 
     source_path = _Path(args.source)
-    out_path = _Path(args.out)
+    workspace = ProjectWorkspace.from_path(source_path)
+    out_path = _Path(args.out) if args.out else workspace.resolve_extracted_spec_path(source_path)
     lang_key: str = args.lang or source_path.suffix
 
     _console.print(
@@ -448,7 +442,7 @@ def _build_parser() -> argparse.ArgumentParser:
     # ── transpile ─────────────────────────────────────────────────────────
     transpile_parser = subparsers.add_parser(
         "transpile",
-        help="Convert a logic manifest or .amarooi file to Python source code.",
+        help="Convert a logic manifest or .amarooi file to target source code.",
     )
     transpile_parser.add_argument(
         "--manifest",
@@ -458,7 +452,9 @@ def _build_parser() -> argparse.ArgumentParser:
         help=f"Path to the manifest file (default: {_DEFAULT_MANIFEST_PATH}).",
     )
     transpile_parser.add_argument(
+        "--spec",
         "--file",
+        dest="spec",
         type=str,
         default=None,
         metavar="PATH",
@@ -466,11 +462,21 @@ def _build_parser() -> argparse.ArgumentParser:
         "When provided, bypasses the JSON manifest pipeline entirely.",
     )
     transpile_parser.add_argument(
+        "-t",
+        "--target",
+        type=str,
+        default=None,
+        metavar="LANG",
+        choices=sorted(TARGET_ALIASES),
+        help="Target language alias (py/python, rs/rust, cpp/c++, java, ts/typescript).",
+    )
+    transpile_parser.add_argument(
         "--out",
         type=str,
-        required=True,
+        default=None,
         metavar="PATH",
-        help="Destination path for the generated Python source file.",
+        help="Destination path for the generated source file.  "
+        "Defaults to src_generated/<target>/<name>.<ext>.",
     )
 
     # ── architect ─────────────────────────────────────────────────────────
@@ -502,9 +508,9 @@ def _build_parser() -> argparse.ArgumentParser:
         "--out-dir",
         dest="out_dir",
         type=str,
-        default="logic",
+        default=None,
         metavar="DIR",
-        help="Directory to write the .amarooi spec file (default: logic).",
+        help="Directory to write the .amarooi spec file (default: specs).",
     )
 
     # ── run ───────────────────────────────────────────────────────────────
@@ -550,9 +556,10 @@ def _build_parser() -> argparse.ArgumentParser:
     extract_parser.add_argument(
         "--out",
         type=str,
-        required=True,
+        default=None,
         metavar="PATH",
-        help="Destination path for the extracted SpecContract JSON.",
+        help="Destination path for the extracted SpecContract JSON.  "
+        "Defaults to extracted_specs/<source>.amarooi.json.",
     )
 
     # ── verify ────────────────────────────────────────────────────────────

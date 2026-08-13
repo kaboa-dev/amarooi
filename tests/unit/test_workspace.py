@@ -30,7 +30,7 @@ class TestTargetHelpers:
 
     def test_normalize_target_rejects_unknown_value(self) -> None:
         with pytest.raises(ValueError, match="Unsupported target"):
-            normalize_target("go")
+            normalize_target("brainfuck")
 
 
 class TestProjectWorkspace:

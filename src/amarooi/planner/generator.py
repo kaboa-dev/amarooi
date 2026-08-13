@@ -3,7 +3,7 @@
 This module provides :class:`NaturalLogicGenerator`, which converts validated
 interview answers collected by :class:`~amarooi.planner.architect.SDLCArchitect`
 into ``.amarooi`` natural pseudocode files, and :class:`WorkspaceManager`, which
-manages the ``logic/`` workspace directory where those files are saved.
+manages the spec workspace directory where those files are saved.
 
 Example::
 
@@ -16,69 +16,9 @@ Example::
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
-
-# ---------------------------------------------------------------------------
-# WorkspaceManager
-# ---------------------------------------------------------------------------
-
-
-class WorkspaceManager:
-    """Manages the ``logic/`` workspace directory.
-
-    All generated ``.amarooi`` files are saved inside *workspace_dir*.  The
-    directory is created on demand the first time a file is written.
-
-    Attributes:
-        workspace_dir: Absolute path to the workspace root directory.
-    """
-
-    def __init__(self, workspace_dir: str | Path = "logic") -> None:
-        """Initialise the workspace manager.
-
-        Args:
-            workspace_dir: Path to the workspace root.  Defaults to the
-                ``logic/`` subdirectory relative to the current working
-                directory.
-        """
-        self.workspace_dir: Path = Path(workspace_dir).resolve()
-
-    def ensure_dir(self) -> None:
-        """Create the workspace directory (and parents) if it does not exist."""
-        self.workspace_dir.mkdir(parents=True, exist_ok=True)
-
-    def filepath(self, component_name: str) -> Path:
-        """Return the canonical path for a component's ``.amarooi`` file.
-
-        Args:
-            component_name: Logical name of the component (e.g. ``rate_limiter``).
-
-        Returns:
-            A :class:`~pathlib.Path` pointing to
-            ``<workspace_dir>/<component_name>.amarooi``.
-        """
-        safe_name = component_name.replace(" ", "_").lower()
-        return self.workspace_dir / f"{safe_name}.amarooi"
-
-    def write(self, component_name: str, content: str) -> Path:
-        """Write *content* to the component's ``.amarooi`` file.
-
-        The workspace directory is created automatically if it does not exist.
-
-        Args:
-            component_name: Logical name of the component.
-            content: ``.amarooi`` natural pseudocode text to persist.
-
-        Returns:
-            The :class:`~pathlib.Path` of the written file.
-        """
-        self.ensure_dir()
-        path = self.filepath(component_name)
-        path.write_text(content, encoding="utf-8")
-        return path
-
+from amarooi.core.workspace import WorkspaceManager
 
 # ---------------------------------------------------------------------------
 # NaturalLogicGenerator
@@ -108,7 +48,7 @@ class NaturalLogicGenerator:
 
         Args:
             workspace: Optional :class:`WorkspaceManager`.  A default instance
-                (targeting ``logic/``) is created when *None*.
+                (targeting ``specs/``) is created when *None*.
         """
         self.workspace: WorkspaceManager = workspace or WorkspaceManager()
 

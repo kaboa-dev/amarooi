@@ -116,6 +116,22 @@ class TestTranspilerEngineSuccessful:
 
         assert result == inner_code
 
+    def test_transpile_accepts_target_alias_for_non_python(self) -> None:
+        """Non-Python targets should accept aliases and skip Python AST validation."""
+        rust_code = "fn is_even(number: i32) -> bool {\n    number % 2 == 0\n}"
+        client = _make_mock_client(rust_code)
+
+        from amarooi.planner.schemas import LogicManifest
+
+        manifest = LogicManifest.model_validate(_manifest_payload())
+
+        with patch("amarooi.transpiler.engine.get_settings"):
+            engine = TranspilerEngine(client=client)
+
+        result = engine.transpile(manifest, target_language="rs")
+
+        assert result == rust_code
+
 
 class TestTranspilerEngineSyntaxErrors:
     """Tests for invalid Python from the LLM."""
@@ -190,3 +206,43 @@ class TestTranspilerEngineFile:
 
         with pytest.raises(ManifestValidationError):
             engine.transpile_file(bad_manifest, tmp_path / "out.py")
+
+    def test_transpile_file_defaults_to_target_isolated_output(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """transpile_file() derives src_generated/<target>/ output when omitted."""
+        manifest = _manifest_payload()
+        manifest["context"]["target_language"] = "rust"
+        manifest_file = tmp_path / "specs" / "order_router.amarooi.json"
+        manifest_file.parent.mkdir()
+        manifest_file.write_text(json.dumps(manifest), encoding="utf-8")
+
+        rust_code = "fn order_router() {}\n"
+        client = _make_mock_client(rust_code)
+        monkeypatch.chdir(tmp_path)
+
+        with patch("amarooi.transpiler.engine.get_settings"):
+            engine = TranspilerEngine(client=client)
+
+        result = engine.transpile_file(manifest_file)
+        output_file = tmp_path / "src_generated" / "rust" / "order_router.rs"
+
+        assert result == rust_code.strip()
+        assert output_file.read_text(encoding="utf-8") == rust_code.strip()
+
+    def test_transpile_spec_file_defaults_to_target_isolated_output(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """transpile_spec_file() writes generated code into the target workspace."""
+        spec_file = tmp_path / "specs" / "order_router.amarooi"
+        spec_file.parent.mkdir()
+        spec_file.write_text("Component: order_router\n", encoding="utf-8")
+
+        ts_code = "export const orderRouter = true;\n"
+        client = _make_mock_client(ts_code)
+        monkeypatch.chdir(tmp_path)
+
+        with patch("amarooi.transpiler.engine.get_settings"):
+            engine = TranspilerEngine(client=client)
+
+        result = engine.transpile_spec_file(spec_file, target_language="ts")
+        output_file = tmp_path / "src_generated" / "typescript" / "order_router.ts"
+
+        assert result == ts_code.strip()
+        assert output_file.read_text(encoding="utf-8") == ts_code.strip()

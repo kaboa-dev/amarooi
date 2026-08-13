@@ -17,7 +17,7 @@ Example::
 
     from amarooi.core.synthesis import SynthesisEngine
     engine = SynthesisEngine()
-    spec_path = engine.synthesize("Build a rate-limiter…", output_dir=Path("logic"))
+    spec_path = engine.synthesize("Build a rate-limiter…", output_dir=Path("specs"))
 """
 
 from __future__ import annotations

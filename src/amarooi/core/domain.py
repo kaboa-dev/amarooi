@@ -1,7 +1,7 @@
-"""Dynamic Domain Adaptation & Compound Inference Engine.
+"""Dynamic Domain Adaptation & Software Component Inference Engine.
 
 Automatically infers the system architecture domain and required software
-compounds from an unstructured natural-language prompt, without forcing
+components from an unstructured natural-language prompt, without forcing
 the user to select from dropdowns.
 
 Supported domains
@@ -12,7 +12,7 @@ Supported domains
 - ``game`` – Game Engines / Interactive Systems
 - ``networking`` – Networking / Microservices
 
-Each domain maps to a set of *software compounds*: the canonical technical
+Each domain maps to a set of *software components*: the canonical technical
 components that should be scaffolded for that kind of system.
 
 Example::
@@ -20,8 +20,8 @@ Example::
     from amarooi.core.domain import DomainAdapter
     adapter = DomainAdapter()
     result = adapter.infer("Build a REST API with JWT auth and Postgres")
-    print(result.domain)      # 'web_api'
-    print(result.compounds)   # ['Auth & Session Tokens', 'SQL/ORM Schemas', ...]
+    print(result.domain)              # 'web_api'
+    print(result.software_components) # ['Database Component', 'Security & Auth Component', ...]
 """
 
 from __future__ import annotations
@@ -80,17 +80,17 @@ _DOMAIN_SIGNALS: dict[str, frozenset[str]] = {
     ),
 }
 
-#: Canonical software compounds for each domain.
-_DOMAIN_COMPOUNDS: dict[str, list[str]] = {
+#: Canonical software components for each domain.
+_DOMAIN_SOFTWARE_COMPONENTS: dict[str, list[str]] = {
     "web_api": [
-        "Auth & Session Tokens",
-        "SQL/ORM Schemas",
+        "Database Component (SQL, ORM, Migrations)",
+        "Security & Auth Component (JWT, OAuth, Encryption)",
         "REST/GraphQL Endpoints",
         "Client UI State",
     ],
     "trading": [
         "Real-Time WebSocket Ingestion",
-        "Order Execution Loop",
+        "Execution Loop Component (State Machines, Invariant Gates)",
         "Risk Boundary Invariants",
         "Circuit Breaker",
     ],
@@ -107,12 +107,15 @@ _DOMAIN_COMPOUNDS: dict[str, list[str]] = {
         "Input Controller",
     ],
     "networking": [
-        "RPC Protocol",
-        "Rate Limiting Regime",
+        "Networking Component (REST, WebSockets, Rate Limiters)",
+        "Execution Loop Component (State Machines, Invariant Gates)",
         "Retry Backoff",
         "Serialization Scheme",
     ],
 }
+
+# Backward-compatibility alias
+_DOMAIN_COMPOUNDS = _DOMAIN_SOFTWARE_COMPONENTS
 
 #: Fallback domain used when no domain can be inferred with sufficient confidence.
 _FALLBACK_DOMAIN = "web_api"
@@ -132,16 +135,22 @@ class DomainInferenceResult:
 
     Attributes:
         domain: The inferred domain identifier (e.g. ``'web_api'``).
-        compounds: Ordered list of canonical software compounds for the domain.
+        software_components: Ordered list of canonical software components for
+            the domain.
         confidence: Fraction of matched keywords relative to the winning domain's
             vocabulary size.  Value in ``[0.0, 1.0]``.
         prompt_tokens: Normalised tokens extracted from the original prompt.
     """
 
     domain: str
-    compounds: list[str]
+    software_components: list[str]
     confidence: float
     prompt_tokens: list[str] = field(default_factory=list)
+
+    @property
+    def compounds(self) -> list[str]:
+        """Backward-compatibility alias for :attr:`software_components`."""
+        return self.software_components
 
 
 # ---------------------------------------------------------------------------
@@ -191,30 +200,58 @@ class DomainAdapter:
 
         return DomainInferenceResult(
             domain=chosen,
-            compounds=list(_DOMAIN_COMPOUNDS[chosen]),
+            software_components=list(_DOMAIN_SOFTWARE_COMPONENTS[chosen]),
             confidence=round(confidence, 4),
             prompt_tokens=tokens,
         )
+
+    def infer_software_components(self, prompt: str) -> DomainInferenceResult:
+        """Infer domain and software components from an unstructured prompt.
+
+        Alias for :meth:`infer` using the updated *software_components*
+        terminology.
+
+        Args:
+            prompt: Free-form description of the system being built.
+
+        Returns:
+            A :class:`DomainInferenceResult` with ``software_components`` populated.
+        """
+        return self.infer(prompt)
 
     def list_domains(self) -> list[str]:
         """Return all supported domain identifiers."""
         return list(_DOMAIN_SIGNALS.keys())
 
     def compounds_for(self, domain: str) -> list[str]:
-        """Return the canonical compounds for a given domain.
+        """Return the canonical software components for a given domain.
 
         Args:
             domain: A domain identifier (e.g. ``'trading'``).
 
         Returns:
-            Ordered list of compound names.
+            Ordered list of software component names.
 
         Raises:
             KeyError: If *domain* is not recognised.
         """
-        if domain not in _DOMAIN_COMPOUNDS:
-            raise KeyError(f"Unknown domain: '{domain}'.  Valid domains: {list(_DOMAIN_COMPOUNDS)}")
-        return list(_DOMAIN_COMPOUNDS[domain])
+        return self.software_components_for(domain)
+
+    def software_components_for(self, domain: str) -> list[str]:
+        """Return the canonical software components for a given domain.
+
+        Args:
+            domain: A domain identifier (e.g. ``'trading'``).
+
+        Returns:
+            Ordered list of software component names.
+
+        Raises:
+            KeyError: If *domain* is not recognised.
+        """
+        if domain not in _DOMAIN_SOFTWARE_COMPONENTS:
+            raise KeyError(f"Unknown domain: '{domain}'.  Valid domains: {list(_DOMAIN_SOFTWARE_COMPONENTS)}")
+        return list(_DOMAIN_SOFTWARE_COMPONENTS[domain])
 
 
 # ---------------------------------------------------------------------------

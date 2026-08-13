@@ -1,0 +1,141 @@
+/* Amarooi Webview – Crimson & Cream White UI Theme
+ * =====================================================
+ * Premium Crimson & Cream White color palette for the VS Code Webview UI.
+ */
+
+:root {
+  /* Primary Reds (Crimson Spectrum) */
+  --amarooi-red-primary: #DC2626;              /* Vivid Scarlet (Buttons / Active States) */
+  --amarooi-red-crimson: #B91C1C;              /* Deep Crimson (Borders & Highlights) */
+  --amarooi-red-ruby: #991B1B;                 /* Dark Ruby (Headers & Card Accents) */
+  --amarooi-red-wine: #7F1D1D;                 /* Deep Wine (Hover Backdrops) */
+  --amarooi-red-glow: rgba(220, 38, 38, 0.25); /* Subtle Neon Glow */
+
+  /* Whites & Creams */
+  --amarooi-cream-white: #FAF9F6;  /* Solid Off-White / Cream (Primary Text) */
+  --amarooi-pure-white: #FFFFFF;   /* Pure White (Active Code Highlights) */
+  --amarooi-subtle-cream: #E2E8F0; /* Muted Cream (Secondary Labels & Subtitles) */
+
+  /* Dark Contrast Backgrounds */
+  --amarooi-bg-dark: #09090B;   /* Obsidian Dark (Webview Canvas) */
+  --amarooi-card-dark: #121215; /* Deep Slate (Card Containers) */
+}
+
+/* -----------------------------------------------------------------------
+ * Base Layout
+ * --------------------------------------------------------------------- */
+
+body {
+  background-color: var(--amarooi-bg-dark);
+  color: var(--amarooi-cream-white);
+  font-family: var(--vscode-font-family, "Segoe UI", sans-serif);
+  margin: 0;
+  padding: 0;
+}
+
+/* -----------------------------------------------------------------------
+ * Typography & Labels
+ * --------------------------------------------------------------------- */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--amarooi-pure-white);
+}
+
+p,
+label,
+span {
+  color: var(--amarooi-cream-white);
+}
+
+.label-secondary,
+.subtitle {
+  color: var(--amarooi-subtle-cream);
+}
+
+/* -----------------------------------------------------------------------
+ * Suggestion Chips
+ * --------------------------------------------------------------------- */
+
+.suggestion-chip {
+  background-color: var(--amarooi-red-ruby);
+  color: var(--amarooi-cream-white);
+  border: 1px solid transparent;
+  border-radius: 16px;
+  padding: 4px 12px;
+  cursor: pointer;
+  display: inline-block;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.suggestion-chip:hover {
+  border-color: var(--amarooi-red-crimson);
+  background-color: var(--amarooi-red-wine);
+}
+
+/* -----------------------------------------------------------------------
+ * Trade-Off Cards
+ * --------------------------------------------------------------------- */
+
+.tradeoff-card {
+  background-color: var(--amarooi-card-dark);
+  border-left: 4px solid var(--amarooi-red-primary);
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  box-shadow: inset 0 0 12px var(--amarooi-red-wine);
+}
+
+.tradeoff-card:hover {
+  box-shadow: inset 0 0 20px var(--amarooi-red-wine), 0 0 6px var(--amarooi-red-glow);
+}
+
+/* -----------------------------------------------------------------------
+ * Chat Bubbles
+ * --------------------------------------------------------------------- */
+
+.chat-bubble {
+  background-color: var(--amarooi-card-dark);
+  color: var(--amarooi-cream-white);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  max-width: 80%;
+}
+
+.chat-bubble.active,
+.chat-bubble--user {
+  background-color: var(--amarooi-red-primary);
+  color: var(--amarooi-pure-white);
+  box-shadow: 0 0 8px var(--amarooi-red-glow);
+}
+
+/* -----------------------------------------------------------------------
+ * Primary Action Buttons
+ * --------------------------------------------------------------------- */
+
+.btn-primary {
+  background-color: var(--amarooi-red-primary);
+  color: var(--amarooi-pure-white);
+  border: none;
+  border-radius: 6px;
+  padding: 8px 20px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: var(--amarooi-red-crimson);
+  box-shadow: 0 0 10px var(--amarooi-red-glow);
+  outline: none;
+}
+
+.btn-primary:active {
+  background-color: var(--amarooi-red-ruby);
+}

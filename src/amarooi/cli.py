@@ -23,6 +23,8 @@ from rich.panel import Panel
 
 from amarooi.core.exceptions import AmarooiException
 from amarooi.core.state import PlannerSession
+from amarooi.core.synthesis import SynthesisEngine, VaguePromptError
+from amarooi.core.usage import UsageTracker
 from amarooi.planner.architect import SDLCArchitect
 from amarooi.planner.manifest import ManifestEngine
 from amarooi.transpiler.engine import TranspilerEngine
@@ -175,7 +177,62 @@ def _cmd_architect(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_run(args: argparse.Namespace) -> int:
+def _cmd_synthesize(args: argparse.Namespace) -> int:
+    """Execute the ``synthesize`` sub-command.
+
+    Stage 1 of the Two-Stage Spec Pipeline:
+
+    * **Detailed prompt** → synthesises a ``.amarooi`` logic spec directly
+      into ``logic/<slug>.amarooi`` without an interactive interview.
+    * **Vague prompt** → prints guidance and exits with code 2, directing the
+      user to run ``amarooi architect`` instead.
+
+    Args:
+        args: Parsed argument namespace containing ``prompt`` and ``out_dir``.
+
+    Returns:
+        Exit code: ``0`` on success, ``1`` on LLM failure, ``2`` when the
+        prompt is too vague.
+    """
+    prompt: str = args.prompt or _prompt_interactively(
+        "Describe the component you want to synthesise (be detailed)"
+    )
+    out_dir = Path(args.out_dir)
+
+    _console.print(
+        Panel("[bold cyan]Amarooi · Spec Synthesis[/bold cyan]", expand=False)
+    )
+
+    tracker = UsageTracker()
+    limit_msg = tracker.check_limit("transpile")
+    if limit_msg:
+        _console.print(f"[yellow]{limit_msg}[/yellow]")
+        return 1
+
+    engine = SynthesisEngine()
+    try:
+        spec_path = engine.synthesize(prompt, output_dir=out_dir)
+    except VaguePromptError as exc:
+        _err_console.print(
+            f"[bold yellow]Prompt is too vague:[/bold yellow] {exc}\n\n"
+            "Run [bold]amarooi architect[/bold] to launch the interactive "
+            "Architect Wizard and refine your requirements."
+        )
+        return 2
+    except AmarooiException as exc:
+        _err_console.print(f"[bold red]Error:[/bold red] {exc}")
+        return 1
+
+    tracker.increment("transpile")
+    _console.print(
+        f"[bold green]✓[/bold green] Spec written to [bold]{spec_path}[/bold]\n"
+        "[dim]Review the spec, then run [bold]amarooi transpile --file "
+        f"{spec_path}[/bold] to generate Python.[/dim]"
+    )
+    return 0
+
+
+
     """Execute the ``run`` sub-command.
 
     Runs the full pipeline: plan (generate manifest) then transpile (generate
@@ -298,6 +355,27 @@ def _build_parser() -> argparse.ArgumentParser:
         "If omitted, you will be prompted interactively.",
     )
 
+    # ── synthesize ────────────────────────────────────────────────────────
+    synthesize_parser = subparsers.add_parser(
+        "synthesize",
+        help="Stage 1: synthesise a .amarooi spec from a detailed prompt.",
+    )
+    synthesize_parser.add_argument(
+        "--prompt",
+        type=str,
+        default=None,
+        help="Detailed description of the component.  "
+        "If omitted, you will be prompted interactively.",
+    )
+    synthesize_parser.add_argument(
+        "--out-dir",
+        dest="out_dir",
+        type=str,
+        default="logic",
+        metavar="DIR",
+        help="Directory to write the .amarooi spec file (default: logic).",
+    )
+
     # ── run ───────────────────────────────────────────────────────────────
     run_parser = subparsers.add_parser(
         "run",
@@ -368,6 +446,7 @@ def main() -> None:
         "transpile": _cmd_transpile,
         "run": _cmd_run,
         "architect": _cmd_architect,
+        "synthesize": _cmd_synthesize,
     }
 
     handler = dispatch[args.command]

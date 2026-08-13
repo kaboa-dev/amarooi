@@ -14,6 +14,14 @@ TARGET_ALIASES: dict[str, str] = {
     "java": "java",
     "ts": "typescript",
     "typescript": "typescript",
+    "cobol": "cobol",
+    "cob": "cobol",
+    "js": "javascript",
+    "javascript": "javascript",
+    "go": "go",
+    "golang": "go",
+    "cs": "csharp",
+    "csharp": "csharp",
 }
 
 TARGET_EXTENSIONS: dict[str, str] = {
@@ -22,6 +30,10 @@ TARGET_EXTENSIONS: dict[str, str] = {
     "c++": ".cpp",
     "java": ".java",
     "typescript": ".ts",
+    "cobol": ".cbl",
+    "javascript": ".js",
+    "go": ".go",
+    "csharp": ".cs",
 }
 
 TARGET_BADGE_STYLES: dict[str, str] = {
@@ -30,6 +42,10 @@ TARGET_BADGE_STYLES: dict[str, str] = {
     "c++": "white on blue",
     "java": "white on magenta",
     "typescript": "white on cyan",
+    "cobol": "white on color(#475569)",
+    "javascript": "black on color(#F7DF1E)",
+    "go": "white on color(#00ADD8)",
+    "csharp": "white on color(#512BD4)",
 }
 
 TARGET_BADGE_LABELS: dict[str, str] = {
@@ -38,6 +54,10 @@ TARGET_BADGE_LABELS: dict[str, str] = {
     "c++": "C++",
     "java": "JAVA",
     "typescript": "TS",
+    "cobol": "COBOL",
+    "javascript": "JS",
+    "go": "GO",
+    "csharp": "C#",
 }
 
 

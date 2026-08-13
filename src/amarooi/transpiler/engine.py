@@ -36,6 +36,10 @@ _TARGET_GENERATION_HINTS: dict[str, str] = {
     "c++": "Generate clean, complete, modern C++ code with clear types and headers included when needed.",
     "java": "Generate clean, complete, idiomatic Java code with explicit classes and types.",
     "typescript": "Generate clean, complete, strongly typed TypeScript code.",
+    "cobol": "Generate clean, complete ANSI COBOL / IBM Enterprise COBOL with IDENTIFICATION DIVISION, ENVIRONMENT DIVISION, DATA DIVISION (WORKING-STORAGE SECTION), and PROCEDURE DIVISION.",
+    "javascript": "Generate clean, complete ES6+ JavaScript with async/await, explicit TypeError throw conditions, and module.exports.",
+    "go": "Generate clean, complete idiomatic Go code with explicit struct state definitions, multi-return error handling, and strict invariant checks.",
+    "csharp": "Generate clean, complete modern C# 10/11 code with record types, strong static typing, ArgumentException gates, and namespace organization.",
 }
 
 
